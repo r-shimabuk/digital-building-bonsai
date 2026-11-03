@@ -55,7 +55,7 @@ html,body,#stage,canvas,button{touch-action:manipulation;-webkit-user-select:non
 #ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 </style>
 
-<div id="stage"><canvas id="c" aria-label="鉢から育つビルを3Dで描いた立面。線を引いて剪定できる"></canvas><canvas id="nz" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas><canvas id="ov"></canvas><div id="fx"></div></div>
+<div id="stage"><canvas id="c" aria-label="鉢から育つビルを3Dで描いた立面。線を引いて剪定できる"></canvas><canvas id="nz" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas><canvas id="ov" style="z-index:3"></canvas><div id="edgeT" style="position:fixed;left:0;right:0;top:0;height:14px;z-index:1"></div><div id="edgeB" style="position:fixed;left:0;right:0;bottom:0;height:14px;z-index:1"></div><div id="fx" style="z-index:2"></div></div>
 <footer>
   <div id="pop" aria-live="polite"><span class="lab">Population<small>人口</small></span><span class="num" id="popNum">0</span><span class="delta" id="popDelta"></span></div>
   <nav>
@@ -63,7 +63,6 @@ html,body,#stage,canvas,button{touch-action:manipulation;-webkit-user-select:non
   <span id="status" aria-live="off"></span>
   <span id="hint"></span>
 </footer>
-<div id="edgeT" style="position:fixed;left:0;right:0;top:0;height:2px;pointer-events:none;z-index:1"></div><div id="edgeB" style="position:fixed;left:0;right:0;bottom:0;height:2px;pointer-events:none;z-index:1"></div>
 <div id="tst"><button id="boost" type="button" aria-label="成長促進剤：モチーフを1つ増やす">Grow+ <small>成長促進剤</small></button></div>
 <script type="importmap">{"imports":{"three":"https://cdnjs.cloudflare.com/ajax/libs/three.js/0.180.0/three.module.min.js"}}</script>
 <script type="module">
@@ -324,12 +323,12 @@ const paintTex=canvasTex(512,(q,n)=>{q.fillStyle='#fff';q.fillRect(0,0,n,n);cons
 function worldMapped(mat,scale){mat.onBeforeCompile=sh=>{sh.uniforms.wScale={value:scale};sh.uniforms.dMap={value:detailTex};
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;varying vec3 vWN;').replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;vWN=normalize(mat3(modelMatrix)*objectNormal);');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;varying vec3 vWN;uniform float wScale;uniform sampler2D dMap;').replace('#include <map_fragment>',
-   `vec3 an=abs(vWN);vec2 wuv=an.z>max(an.x,an.y)?vWP.xy:an.y>an.x?vWP.xz:vWP.zy;vec4 sampledDiffuseColor=texture2D(map,wuv*wScale+vec2(0.37,0.11));diffuseColor*=sampledDiffuseColor;float dt=texture2D(dMap,wuv*wScale*7.0).r*2.0-0.0;float dt2=texture2D(dMap,wuv*wScale*23.0+0.5).r*2.0;diffuseColor.rgb*=mix(1.0,dt,0.55)*mix(1.0,dt2,0.35);`)};mat.customProgramCacheKey=()=>'wm2'+scale;return mat}
+   `vec3 an=abs(vWN);vec2 wuv=an.z>max(an.x,an.y)?vWP.xy:an.y>an.x?vWP.xz:vWP.zy;vec4 sampledDiffuseColor=texture2D(map,wuv*wScale+vec2(0.37,0.11));diffuseColor*=sampledDiffuseColor;float dt=texture2D(dMap,wuv*wScale*7.0).r*2.0-0.0;float dt2=texture2D(dMap,wuv*wScale*23.0+0.5).r*2.0;diffuseColor.rgb*=mix(1.0,dt,0.3)*mix(1.0,dt2,0.18);`)};mat.customProgramCacheKey=()=>'wm3'+scale;return mat}
 const std=(c,o={})=>new THREE.MeshStandardMaterial({color:c,roughness:.85,metalness:0,...o});
 const GT={value:0},GS={value:1};
 function addGrain(mat){if(!mat||mat.userData.gr||!mat.isMaterial||mat.isMeshBasicMaterial)return;mat.userData.gr=1;const prev=mat.onBeforeCompile,pk=mat.customProgramCacheKey.bind(mat);
   mat.onBeforeCompile=(sh,r)=>{if(prev&&prev!==THREE.Material.prototype.onBeforeCompile)prev.call(mat,sh,r);sh.uniforms.uT=GT;sh.uniforms.uGS=GS;
-    sh.fragmentShader='uniform float uT;uniform float uGS;\n'+sh.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\nvec2 gq=floor(gl_FragCoord.xy/uGS);float gn=fract(sin(dot(gq+vec2(uT*61.0,uT*37.0),vec2(12.9898,78.233)))*43758.5453);float gm=fract(sin(dot(gq*0.37+vec2(uT*13.0,uT*7.0),vec2(39.346,11.135)))*24634.6345);gl_FragColor.rgb*=0.965+0.07*gn;gl_FragColor.rgb+=vec3(0.006)*(gm-0.5);')};
+    sh.fragmentShader='uniform float uT;uniform float uGS;\n'+sh.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\nvec2 gq=floor(gl_FragCoord.xy/uGS);float gn=fract(sin(dot(gq+vec2(uT*61.0,uT*37.0),vec2(12.9898,78.233)))*43758.5453);float gm=fract(sin(dot(gq*0.37+vec2(uT*13.0,uT*7.0),vec2(39.346,11.135)))*24634.6345);gl_FragColor.rgb*=0.985+0.03*gn;gl_FragColor.rgb+=vec3(0.003)*(gm-0.5);')};
   mat.customProgramCacheKey=()=>pk()+'|grain'}
 const M={
   white:worldMapped(std('#FAF8F2',{map:concTex,roughness:.92}),0.21),
@@ -684,7 +683,8 @@ function init3d(){renderer=new THREE.WebGLRenderer({canvas:C,antialias:true,pres
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));const m=new THREE.PointsMaterial({color:'#ffffff',size:k?1.6:1.1,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false});const p=new THREE.Points(geo,m);p.frustumCulled=false;scene.add(p);STAR3.push(m)}}const gnd=new THREE.Mesh(BOX,M.ground);gnd.scale.set(400,40,30);gnd.position.set(0,FLW-20,-12);gnd.receiveShadow=true;addGrain(M.ground);scene.add(gnd);scene.add(buildPot());
   ovX=document.getElementById('ov').getContext('2d')}
 function fit(){const d=devicePixelRatio||1;W=stage.clientWidth;H=stage.clientHeight;if(renderer)renderer.setSize(W,H,false);const ov=document.getElementById('ov');ov.width=W*d;ov.height=H*d;if(ovX)ovX.setTransform(d,0,0,d,0,0);
-  U=Math.max(14,Math.min(96,(W-24)/11,(H-130)/(10.6*1.22)));V=U*1.22;G=H-1.15*V-8;const pf=(T&&T.potF)||0.5;CX=Math.max(U*3,Math.min(W-U*3,W*pf));MAXL=Math.min(14,Math.floor(CX/U-1.3));MAXRC=Math.min(14,Math.floor((W-CX)/U-1.3));MAXC=Math.max(MAXL,MAXRC);WIDE=Math.max(1,Math.min(2.2,(MAXL+MAXRC+1)/11));MAXB=Math.round(28*Math.min(1.7,WIDE));MAXR=Math.max(8,Math.floor((G-100)/V));
+  U=Math.max(14,Math.min(96,(W-24)/11,(H-130)/(10.6*1.22)));V=U*1.22;G=H-1.15*V-8;const pf=(T&&T.potF)||0.5;CX=Math.max(U*3,Math.min(W-U*3,W*pf));// growth limits no longer depend on the screen: the tree may grow as wide and tall as it likes and the camera pulls back to keep all of it in view
+  MAXL=MAXRC=MAXC=13;WIDE=1.6;MAXB=46;MAXR=22;
   BASE={U,G,CX,floorY:G+0.5*V};camState=null;applyCam()}
 addEventListener('resize',fit);
 /* ---------- auto framing: the camera eases in on a small young tree and pulls back as it grows; ground stays put ---------- */
@@ -692,10 +692,11 @@ let BASE=null,camState=null,camT=0;
 function applyCam(){if(!cam)return;cam.left=-CX/U;cam.right=(W-CX)/U;cam.top=G/U;cam.bottom=-(H-G)/U;cam.updateProjectionMatrix()}
 function frameTarget(){let x0=-1.25,x1=1.25,y1=1.2;T.blocks.forEach(b=>{const pv=PLANTS.has(b.role)?plantVis(b):null;x0=Math.min(x0,b.x-0.5-(pv?pv[0]/2-b.w/2:0));x1=Math.max(x1,b.x+b.w-0.5+(pv?pv[0]/2-b.w/2:0));y1=Math.max(y1,(b.y+(pv?pv[1]:b.h))*VW+(['antenna','spire','chimney','clock','dome','onion'].includes(b.role)?0.5:0.25))});
   (T.falling||[]).length;const padX=0.9,bw=x1-x0+2*padX,bh=y1-FLW+0.5,top=Math.max(120,H*0.14),
-    Uz=Math.max(BASE.U,Math.min(BASE.U*2.6,(W-32)/bw,(BASE.floorY-top)/bh)),cxW=(x0+x1)/2;
+    Uz=Math.min(BASE.U*2.6,(W-32)/bw,(BASE.floorY-top)/bh),cxW=(x0+x1)/2;
   // screen x of world 0: centre the tree, but never push it off the side it was planted toward
   let cx=W/2-cxW*Uz;const k=(Uz-BASE.U)/Math.max(1e-6,BASE.U*1.6);cx=cx*(Math.min(1,k))+BASE.CX*(1-Math.min(1,k));
-  cx=Math.max(-x0*Uz+16,Math.min(W-x1*Uz-16,cx));if(Uz<=BASE.U+1e-6)cx=BASE.CX;return{U:Uz,CX:cx}}
+  if(Uz<BASE.U){const c0=W/2-cxW*Uz,k2=Math.min(1,(BASE.U-Uz)/(BASE.U*0.25));cx=BASE.CX*(1-k2)+c0*k2}else if(Uz<=BASE.U+1e-6)cx=BASE.CX;
+  const lo=-x0*Uz+16,hi=W-x1*Uz-16;cx=lo<=hi?Math.max(lo,Math.min(hi,cx)):W/2-cxW*Uz;return{U:Uz,CX:cx}}
 let CAMLOCK=false;let shKey='';function fitShadow(){let x0=-1.5,x1=1.5,y1=2;T.blocks.forEach(b=>{x0=Math.min(x0,b.x-0.5);x1=Math.max(x1,b.x+b.w-0.5);y1=Math.max(y1,(b.y+b.h)*VW+1)});
   const key=[x0,x1,y1,sun.position.x.toFixed(1),sun.position.y.toFixed(1)].join(',');if(key===shKey)return;shKey=key;
   const cx=(x0+x1)/2,cy=(FLW+y1)/2,hw=(x1-x0)/2+3,hh=(y1-FLW)/2+3,d=sun.position.clone().sub(sun.target.position).normalize();
@@ -719,10 +720,10 @@ function draw(){lightByTime();frameCam();GT.value=Math.floor(performance.now()/7
   MESH.forEach((e,id)=>{if(seen.has(id))return;const f=(T.falling||[]).find(f=>f.b.id===id);if(f){const R=rectW(f.b);e.g.position.y=R.y0-(now-f.s)*(now-f.s)*VW*9;if(now-f.s<3)return}root3.remove(e.g);MESH.delete(id)});
   renderer.render(scene,cam);edgeTint();drawOverlay()}
 /* Safari/phone browser bars take their tint from the page edges: sample the rendered top and bottom rows and paint the body + edge strips to match */
-let tintT=-1e9;const TPX=new Uint8Array(4);
+let tintT=-1e9;const TPX=new Uint8Array(4*64);
 function edgeTint(){const t=performance.now();if(t-tintT<1500)return;tintT=t;const gl=renderer.getContext(),W=gl.drawingBufferWidth,H=gl.drawingBufferHeight;
-  const rd=y=>{gl.readPixels(W>>1,y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,TPX);return`rgb(${TPX[0]},${TPX[1]},${TPX[2]})`};
-  const top=rd(H-2),bot=rd(1);document.body.style.background=top;document.documentElement.style.background=bot;
+  const rd=y=>{const c=[0,0,0];for(let i=0;i<8;i++){gl.readPixels(Math.round(W*(i+0.5)/8),y,8,1,gl.RGBA,gl.UNSIGNED_BYTE,TPX);for(let j=0;j<8;j++)for(let q=0;q<3;q++)c[q]+=TPX[j*4+q]}return`rgb(${c.map(v=>Math.round(v/64)).join(',')})`};
+  const k=H/Math.max(1,innerHeight),top=rd(Math.max(0,H-1-Math.round(15*k))),bot=rd(Math.round(15*k));const split=`linear-gradient(to bottom,${top} 0,${top} 50%,${bot} 50%,${bot} 100%)`;for(const el of[document.documentElement,document.body]){el.style.backgroundColor=top;el.style.backgroundImage=split;el.style.backgroundAttachment='fixed'}
   let m=document.querySelector('meta[name=theme-color]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}m.content=top;
   const e=document.getElementById('edgeT'),f=document.getElementById('edgeB');if(e)e.style.background=top;if(f)f.style.background=bot}
 function anim(g,b){const u=g.userData;animWalkers(g);if(u.cab){const c=u.cab.userData.cab,t=0.5+0.5*Math.sin(now*0.5+c.ph);u.cab.position.y=0.05+VW*0.31+c.span*t}
