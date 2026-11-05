@@ -94,9 +94,26 @@ function newTree(){
      trunkCol:col, branchCol:pick([6,7]), accent, apex:null, branches:[]};
   const rw=1, rh=ri(1,2);T.potF=W/H>1.25?0.5+rnd(-0.16,0.22):0.5;if(T.potF>0.56)T.dir=-1;else if(T.potF<0.44)T.dir=1;
   const r=place({role:'root',x:-Math.floor(rw/2),y:0,w:rw,h:rh,parent:null,col:T.trunkCol});
-  T.apex={x:0,y:rh,w:T.style==='chokkan'?ri(1,2):2,parent:r.id,since:0,alive:true};
+  T.apex={x:0,y:rh,w:2,parent:r.id,since:0,alive:true};
   if(T.apex.w===2)T.apex.x=chance(.5)?-1:0;
+  makeEnv();
 }
+function makeEnv(){const top=ri(13,18),st=T.style,pads=[];const L=(a,b,t)=>a+(b-a)*t;
+  pads.push({y:1.2,dx:0,rx:2.3,ry:0.9,k:'nebari'});
+  if(st==='fuki'){pads.push({y:top-2.2,dx:0,rx:rnd(4.6,5.6),ry:rnd(2.6,3.2)});pads.push({y:top*0.5,dx:-2.4,rx:2.2,ry:1.0});pads.push({y:top*0.58,dx:2.4,rx:2.2,ry:1.0})}
+  else{let side=st==='shakan'?-T.dir:(chance(.5)?1:-1);
+    const n=ri(3,5);for(let i=0;i<n;i++){const t=i/Math.max(1,n-1),y=L(top*0.32,top*0.78,t)+rnd(-0.3,0.3),rx=L(5.6,3.0,t)*rnd(0.9,1.12),ry=rnd(0.8,1.0);
+      const s=(st==='shakan'&&chance(.3))?-side:side;pads.push({y,dx:s*(rx*0.8+0.3),rx,ry});side=-side;if(st==='moyogi'&&chance(.25))side=-side}
+    pads.push({y:top,dx:0,rx:rnd(2.4,3.0),ry:rnd(1.5,1.9),k:'apex'})}
+  T.env={top,pads}}
+function envIn(c,r,m){const E=T.env,sp=spineAt(r),tw=1.15-0.55*Math.min(1,r/E.top);if(r<=E.top&&Math.abs(c-sp)<=tw+m)return true;
+  for(const p of E.pads){const sx=spineAt(Math.floor(p.y))+p.dx,u=(c-sx)/(p.rx+m),v=(r-p.y)/(p.ry+m);if(u*u+v*v<=1)return true}return false}
+function envOK(b){if(!T.env)return true;const E=T.env;
+  if((['root','trunk','node'].includes(b.role)||(b.role==='elevator'&&b.col===T.trunkCol))&&!b.hero)return b.y+b.h<=E.top+2;const strict=['elevator','escape','stair','bridge'].includes(b.role)?0:0.25;
+  if(FLOWER.has(b.role)){for(let c=b.x;c<b.x+b.w;c++)if(!envIn(c,b.y,0.6))return false;return true}
+  if(b.hero||b.mega||b.sov){let n=0,k=0;for(let c=b.x;c<b.x+b.w;c++)for(let r=b.y;r<b.y+b.h;r++){k++;if(envIn(c,r,0.8))n++}return n>=k*0.7}
+  for(let c=b.x;c<b.x+b.w;c++)for(let r=b.y;r<b.y+b.h;r++)if(!envIn(c,r,strict))return false;return true}
+
 const ck=(c,r)=>c+','+r;const PLANTS=new Set(['tree','pine','palm','cactus','shrub']);
 function inBounds(x,y,w,h){if(y<0||y+h>MAXR)return false;for(let c=x;c<x+w;c++){if(c<-MAXL||c>MAXRC)return false;if(y===0&&Math.abs(c)>POT)return false}return true}
 function free(x,y,w,h){for(let c=x;c<x+w;c++)for(let r=y;r<y+h;r++)if(T.occ.has(ck(c,r)))return false;return true}
@@ -113,7 +130,7 @@ function pilOK(b){return b.pil!=null&&reach(b.pil,b.y,null)!==null}
 function overhang(b){if(b.y===0)return onPot(b)?0:null;for(let c=b.x;c<b.x+b.w;c++)if(T.occ.has(ck(c,b.y-1)))return 0;
   let best=Infinity;const see=(c,r)=>{const o=T.occ.get(ck(c,r));if(o){const n=T.blocks.get(o);best=Math.min(best,(n.oh||0)+1)}};
   for(let r=b.y;r<b.y+b.h;r++){see(b.x-1,r);see(b.x+b.w,r)}for(let c=b.x;c<b.x+b.w;c++)see(c,b.y+b.h);return best===Infinity?null:best}
-function tryPlace(b){if(!can(b.x,b.y,b.w,b.h))return null;if(PLANTS.has(b.role)){const side=s=>{for(let r=b.y;r<b.y+b.h;r++){const o=T.occ.get(ck(s<0?b.x-1:b.x+b.w,r));if(o&&!PLANTS.has(T.blocks.get(o).role))return true}return false};const L=side(-1),Rr=side(1);b.ws=L&&Rr?0:L?-1:Rr?1:0}const ap=T.apex;if(ap&&ap.alive&&!['trunk','elevator','node'].includes(b.role)&&b.x<ap.x+ap.w&&b.x+b.w>ap.x&&b.y+b.h>ap.y&&b.y<ap.y+3)return null;let oh=overhang(b);if(oh===null)return null;
+function tryPlace(b){if(!can(b.x,b.y,b.w,b.h))return null;if(!envOK(b))return null;if(PLANTS.has(b.role)){const side=s=>{for(let r=b.y;r<b.y+b.h;r++){const o=T.occ.get(ck(s<0?b.x-1:b.x+b.w,r));if(o&&!PLANTS.has(T.blocks.get(o).role))return true}return false};const L=side(-1),Rr=side(1);b.ws=L&&Rr?0:L?-1:Rr?1:0}const ap=T.apex;if(ap&&ap.alive&&!['trunk','elevator','node'].includes(b.role)&&b.x<ap.x+ap.w&&b.x+b.w>ap.x&&b.y+b.h>ap.y&&b.y<ap.y+3)return null;let oh=overhang(b);if(oh===null)return null;
   if(b.role==='bridge')oh=Math.max(0,oh-1);
   if(oh>=3){const cs=[];for(let c=b.x;c<b.x+b.w;c++)cs.push(c);cs.sort((p,q)=>Math.abs(q)-Math.abs(p));const c=cs.find(c=>reach(c,b.y,null)!==null);if(c===undefined)return null;b.pil=c;oh=0}
   b.oh=oh;return place(b)}
@@ -176,7 +193,7 @@ function spineAt(y){let best=null,by=-1;T.blocks.forEach(b=>{if(['root','trunk',
 const b_w=b=>b.w;
 function inCrown(x,y,w,h){if(!T.style||T.style==='chokkan')return true;const reach=(T.style==="fuki"?2.6:1.9)*WIDE;for(let r=y;r<y+h;r++){const c=spineAt(r);if(Math.abs(x+w/2-0.5-c)>reach+ (w-1)/2)return false}return true}
 function stepLeaf(){const list=[...T.blocks.values()].filter(b=>['root','trunk','node','branch','elevator','leaf'].includes(b.role));
-  const shapes=[[1,1],[2,1],[2,1],[3,1],[3,1],[4,1],[2,2],[3,2]],want=pick(shapes);
+  const shapes=T.env?[[2,1],[3,1],[3,1],[4,1],[4,1],[5,1],[2,2],[3,2]]:[[1,1],[2,1],[2,1],[3,1],[3,1],[4,1],[2,2],[3,2]],want=pick(shapes);
   for(let i=0;i<8;i++){const b=pick(list),face=T.style==='fuki'&&chance(.6)?(T.dir>0?3:2):ri(0,3);
     for(const [sw,sh] of [want,[Math.max(1,want[0]-1),want[1]],[1,1]]){const s=sw;let x,y;
       if(face===0){x=ri(b.x-s+1,b.x+b.w-1);y=b.y+b.h}else if(face===1){x=ri(b.x-s+1,b.x+b.w-1);y=b.y-sh}
@@ -684,7 +701,7 @@ function init3d(){renderer=new THREE.WebGLRenderer({canvas:C,antialias:true,pres
   ovX=document.getElementById('ov').getContext('2d')}
 function fit(){const d=devicePixelRatio||1;W=stage.clientWidth;H=stage.clientHeight;if(renderer)renderer.setSize(W,H,false);const ov=document.getElementById('ov');ov.width=W*d;ov.height=H*d;if(ovX)ovX.setTransform(d,0,0,d,0,0);
   U=Math.max(14,Math.min(96,(W-24)/11,(H-130)/(10.6*1.22)));V=U*1.22;G=H-1.15*V-8;const pf=(T&&T.potF)||0.5;CX=Math.max(U*3,Math.min(W-U*3,W*pf));// growth limits no longer depend on the screen: the tree may grow as wide and tall as it likes and the camera pulls back to keep all of it in view
-  MAXL=MAXRC=MAXC=13;WIDE=1.6;MAXB=46;MAXR=22;
+  MAXL=MAXRC=MAXC=13;WIDE=1.6;MAXB=64;MAXR=22;
   BASE={U,G,CX,floorY:G+0.5*V};camState=null;applyCam()}
 addEventListener('resize',fit);
 /* ---------- auto framing: the camera eases in on a small young tree and pulls back as it grows; ground stays put ---------- */
